@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+// Enums are fixed sets of values — like a dropdown with only allowed options.
+// Using enums instead of raw strings prevents typos and invalid data.
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum Caste {
+  GENERAL
+  OBC
+  SC
+  ST
+  EWS
+}
+
+enum EmploymentStatus {
+  EMPLOYED
+  SELF_EMPLOYED
+  UNEMPLOYED
+  STUDENT
+  RETIRED
+}
+
+enum SchemeLevel {
+  CENTRAL   // Applies across all of India (e.g. PM Kisan)
+  STATE     // Applies to one specific state
+  DISTRICT  // Applies to a specific district
+}
+
+enum ApplicationStatus {
+  DRAFT         // User started but didn't submit
+  SUBMITTED     // Submitted to the govt portal
+  UNDER_REVIEW  // Govt is processing
+  APPROVED      // Application accepted
+  REJECTED      // Application rejected
+  MORE_INFO     // Govt asked for more documents
+}
+
+// ─── USER ─────────────────────────────────────────────────────────────────────
+// Core identity table. Minimal — just auth info.
+// Profile details live in UserProfile (separation of concerns).
+
+model User {
+  id            String    @id @default(cuid())  // cuid = collision-resistant unique ID
+  email         String?   @unique
+  phone         String?   @unique               // Primary identifier for most Indian users
+  name          String?
+  image         String?                         // Profile photo URL
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  profile       UserProfile?
+  applications  Application[]
+  savedSchemes  SavedScheme[]
+  accounts      Account[]     // NextAuth accounts (OAuth providers)
+  sessions      Session[]     // NextAuth sessions
+
+  @@index([phone])
+  @@index([email])
+}
+
+// ─── USER PROFILE ─────────────────────────────────────────────────────────────
+// This is the eligibility engine's fuel.
+// Every field here maps to eligibility criteria in government schemes.
+// The richer this profile, the better the scheme matching.
+
+model UserProfile {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Demographics
+  dateOfBirth       DateTime?
+  gender            Gender?
+  caste             Caste?
+  religion          String?
+  nationality       String           @default("Indian")
+  isDisabled        Boolean          @default(false)
+  disabilityType    String?          // e.g. "Visual", "Locomotor"
+  disabilityPercent Int?             // 0-100
+
+  // Geography — critical for state-level scheme matching
+  state             String?
+  district          String?
+  pincode           String?
+  isRural           Boolean?         // Rural/urban affects many schemes
+
+  // Economic
+  annualIncome      Float?           // In INR
+  bplCardHolder     Boolean          @default(false)  // Below Poverty Line
+  rationCardType    String?          // ANTYODAYA / PHH / NPHH
+
+  // Employment & Education
+  employmentStatus  EmploymentStatus?
+  occupation        String?
+  educationLevel    String?          // e.g. "10th Pass", "Graduate"
+  institutionName   String?          // For student schemes
+
+  // Family
+  maritalStatus     String?
+  numberOfChildren  Int?
+  isWidow           Boolean          @default(false)
+  isSingleParent    Boolean          @default(false)
+
+  // Identity documents (store only what's verified, never raw numbers)
+  hasAadhaar        Boolean          @default(false)
+  hasPAN            Boolean          @default(false)
+  hasBankAccount    Boolean          @default(false)
+  bankName          String?
+
+  // Farmer-specific (large scheme category in India)
+  isFarmer          Boolean          @default(false)
+  landHoldingAcres  Float?
+  cropTypes         String[]         // e.g. ["Rice", "Wheat"]
+
+  // Minority status
+  isMinority        Boolean          @default(false)
+  minorityReligion  String?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([state, district])
+  @@index([caste, annualIncome])
+}
+
+// ─── SCHEME ───────────────────────────────────────────────────────────────────
+// The core content table. Populated by the scraper.
+// Json type stores flexible, variable-length structured data
+// (eligibility rules differ wildly across schemes).
+
+model Scheme {
+  id                  String      @id @default(cuid())
+  slug                String      @unique   // URL-friendly ID, e.g. "pm-kisan-samman-nidhi"
+  sourceUrl           String                // Original URL on myscheme.gov.in
+  externalId          String?     @unique   // ID from myscheme.gov.in if available
+
+  // Core content
+  name                String
+  nameHindi           String?               // Hindi name for regional UI
+  description         String                // Short description
+  detailedDescription String?               // Full details
+  ministry            String                // e.g. "Ministry of Agriculture"
+  department          String?
+
+  // Scope
+  level               SchemeLevel           // CENTRAL / STATE / DISTRICT
+  state               String?               // Null if central scheme
+  district            String?
+
+  // Eligibility — stored as JSON because structure varies per scheme
+  // Example: { "minAge": 18, "maxAge": 60, "gender": ["FEMALE"], "caste": ["SC", "ST"] }
+  eligibilityCriteria Json                  @default("{}")
+
+  // Content arrays
+  benefits            String[]              // What the beneficiary gets
+  applicationProcess  String[]              // Step-by-step how to apply
+  requiredDocuments   String[]              // Documents needed
+  tags                String[]              // e.g. ["agriculture", "women", "education"]
+
+  // Application details
+  applicationUrl      String?               // Direct link to apply
+  applicationMode     String[]              // e.g. ["Online", "Offline", "CSC"]
+  deadline            DateTime?             // Null = always open
+
+  // Data quality
+  isActive            Boolean    @default(true)
+  isVerified          Boolean    @default(false)  // Manually verified by admin
+  lastFetchedAt       DateTime?
+  lastVerifiedAt      DateTime?
+
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  // Relations
+  applications        Application[]
+  savedBy             SavedScheme[]
+  embeddings          SchemeEmbedding[]
+
+  @@index([level, state])
+  @@index([ministry])
+  @@index([tags])
+  @@index([isActive, isVerified])
+}
+
+// ─── SCHEME EMBEDDING ─────────────────────────────────────────────────────────
+// Stores vector embeddings for semantic search.
+// A vector embedding is a list of numbers that represents the "meaning"
+// of the scheme — allows finding similar schemes even without exact keyword match.
+// We store as Float[] for now; will migrate to pgvector extension later.
+
+model SchemeEmbedding {
+  id        String   @id @default(cuid())
+  schemeId  String   @unique
+  scheme    Scheme   @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  embedding Float[]  // 1536 dimensions for OpenAI text-embedding-3-small
+  model     String   // Which embedding model was used — important for versioning
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── APPLICATION ──────────────────────────────────────────────────────────────
+// Tracks a user's application to a specific scheme.
+// This is the core of "end-to-end application assistant".
+
+model Application {
+  id            String            @id @default(cuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schemeId      String
+  scheme        Scheme            @relation(fields: [schemeId], references: [id])
+
+  status        ApplicationStatus @default(DRAFT)
+
+  // Form data — stored as JSON because each scheme has different form fields
+  formData      Json              @default("{}")
+
+  // Documents — array of uploaded file references (S3 keys or URLs)
+  documents     Json[]            @default([])
+
+  // Tracking
+  submittedAt   DateTime?
+  referenceNo   String?           // Govt-issued reference number after submission
+  notes         String?           // Internal notes / rejection reason
+
+  // AI assistant conversation history for this application
+  conversation  Json[]            @default([])
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([userId, schemeId])   // One application per user per scheme
+  @@index([userId, status])
+  @@index([schemeId])
+}
+
+// ─── SAVED SCHEME ─────────────────────────────────────────────────────────────
+// Bookmarks — user saves a scheme to view later.
+
+model SavedScheme {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schemeId  String
+  scheme    Scheme   @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, schemeId])  // Can't save same scheme twice
+  @@index([userId])
+}
+
+// ─── NEXTAUTH TABLES ──────────────────────────────────────────────────────────
+// These are required by NextAuth.js — do not modify the field names.
+// They handle OAuth logins (Google, DigiLocker etc.) and session management.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String                        // e.g. "google", "digilocker"
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
