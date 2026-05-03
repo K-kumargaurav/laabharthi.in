@@ -1,6 +1,7 @@
 // src/app/page.tsx
 "use client";
 
+import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -47,6 +48,7 @@ const CATEGORIES = [
 export default function HomePage() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const { data: session } = useSession();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -104,6 +106,50 @@ export default function HomePage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {session ? (
+            <>
+              <span
+                style={{
+                  fontSize: 14,
+                  color: "var(--text-secondary)",
+                  fontWeight: 500,
+                }}
+              >
+                +91 {(session.user as { phone?: string }).phone}
+              </span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                style={{
+                  padding: "10px 20px",
+                  background: "transparent",
+                  color: "var(--navy)",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              style={{
+                padding: "10px 20px",
+                background: "transparent",
+                color: "var(--navy)",
+                border: "1.5px solid var(--border)",
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 14,
+                textDecoration: "none",
+              }}
+            >
+              Sign In
+            </Link>
+          )}
           <Link
             href="/find-schemes"
             style={{
@@ -114,7 +160,6 @@ export default function HomePage() {
               fontWeight: 600,
               fontSize: 14,
               textDecoration: "none",
-              transition: "all 0.2s",
             }}
           >
             Check Eligibility
@@ -170,7 +215,10 @@ export default function HomePage() {
           }}
         />
 
-        <div className="container-main" style={{ position: "relative", zIndex: 1 }}>
+        <div
+          className="container-main"
+          style={{ position: "relative", zIndex: 1 }}
+        >
           <div style={{ maxWidth: 680 }}>
             {/* Badge */}
             <div
@@ -220,9 +268,9 @@ export default function HomePage() {
                 maxWidth: 520,
               }}
             >
-              Millions of Indians miss out on government benefits they qualify for.
-              Tell us about yourself — we'll find every scheme you're eligible for
-              in seconds.
+              Millions of Indians miss out on government benefits they qualify
+              for. Tell us about yourself — we'll find every scheme you're
+              eligible for in seconds.
             </p>
 
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -293,7 +341,7 @@ export default function HomePage() {
                     <span style={{ color: "var(--green)" }}>✓</span>
                     {item}
                   </div>
-                )
+                ),
               )}
             </div>
           </div>
@@ -457,7 +505,9 @@ export default function HomePage() {
                 >
                   {step.step}
                 </div>
-                <div style={{ fontSize: 36, marginBottom: 16 }}>{step.icon}</div>
+                <div style={{ fontSize: 36, marginBottom: 16 }}>
+                  {step.icon}
+                </div>
                 <h3
                   style={{
                     fontSize: 20,
@@ -469,7 +519,13 @@ export default function HomePage() {
                 >
                   {step.title}
                 </h3>
-                <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                <p
+                  style={{
+                    fontSize: 15,
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.6,
+                  }}
+                >
                   {step.desc}
                 </p>
               </div>
