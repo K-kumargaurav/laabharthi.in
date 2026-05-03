@@ -50,12 +50,37 @@ interface ProfileForm {
 }
 
 const STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
-  "Delhi", "Jammu & Kashmir", "Ladakh",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Jammu & Kashmir",
+  "Ladakh",
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -148,7 +173,9 @@ function CheckboxField({
         <div style={{ fontSize: 15, fontWeight: 600, color: "var(--navy)" }}>
           {label}
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
+        <div
+          style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}
+        >
           {desc}
         </div>
       </div>
@@ -156,17 +183,15 @@ function CheckboxField({
   );
 }
 
-function ScoreBadge({ score, isEligible }: { score: number; isEligible: boolean }) {
-  const color = isEligible
-    ? score >= 80
-      ? "#1A7A4A"
-      : "#C9922A"
-    : "#8A9DB5";
-  const bg = isEligible
-    ? score >= 80
-      ? "#E8F5EE"
-      : "#FFF8E8"
-    : "#F0F4F8";
+function ScoreBadge({
+  score,
+  isEligible,
+}: {
+  score: number;
+  isEligible: boolean;
+}) {
+  const color = isEligible ? (score >= 80 ? "#1A7A4A" : "#C9922A") : "#8A9DB5";
+  const bg = isEligible ? (score >= 80 ? "#E8F5EE" : "#FFF8E8") : "#F0F4F8";
 
   return (
     <div
@@ -198,7 +223,9 @@ function SchemeCard({ result }: { result: SchemeResult }) {
         border: `1.5px solid ${result.isEligible ? "rgba(26,122,74,0.2)" : "var(--border)"}`,
         overflow: "hidden",
         transition: "all 0.2s",
-        boxShadow: result.isEligible ? "0 4px 16px rgba(26,122,74,0.08)" : "none",
+        boxShadow: result.isEligible
+          ? "0 4px 16px rgba(26,122,74,0.08)"
+          : "none",
       }}
     >
       <div style={{ padding: "20px 24px" }}>
@@ -224,17 +251,23 @@ function SchemeCard({ result }: { result: SchemeResult }) {
             >
               {result.scheme.ministry}
             </div>
-            <h3
-              style={{
-                fontSize: 17,
-                fontWeight: 700,
-                color: "var(--navy)",
-                lineHeight: 1.3,
-                fontFamily: "'DM Sans', sans-serif",
-              }}
+            <Link
+              href={`/schemes/${result.scheme.slug}`}
+              style={{ textDecoration: "none" }}
             >
-              {result.scheme.name}
-            </h3>
+              <h3
+                style={{
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: "var(--navy)",
+                  lineHeight: 1.3,
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: "pointer",
+                }}
+              >
+                {result.scheme.name}
+              </h3>
+            </Link>
             {result.scheme.nameHindi && (
               <div
                 style={{
@@ -263,7 +296,14 @@ function SchemeCard({ result }: { result: SchemeResult }) {
         </p>
 
         {/* Tags */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
           {result.scheme.tags.slice(0, 4).map((tag) => (
             <span
               key={tag}
@@ -317,7 +357,9 @@ function SchemeCard({ result }: { result: SchemeResult }) {
               rel="noopener noreferrer"
               style={{
                 padding: "8px 20px",
-                background: result.isEligible ? "var(--navy)" : "var(--cream-dark)",
+                background: result.isEligible
+                  ? "var(--navy)"
+                  : "var(--cream-dark)",
                 color: result.isEligible ? "white" : "var(--text-secondary)",
                 borderRadius: 8,
                 fontSize: 13,
@@ -535,9 +577,8 @@ export default function FindSchemesPage() {
                 : "Here are schemes near your profile"}
             </h1>
             <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>
-              {results.total} schemes checked •{" "}
-              {eligible.length} fully eligible •{" "}
-              {others.length} partial matches
+              {results.total} schemes checked • {eligible.length} fully eligible
+              • {others.length} partial matches
             </p>
           </div>
         </div>
@@ -712,7 +753,10 @@ export default function FindSchemesPage() {
       </div>
 
       {/* Form */}
-      <div className="container-main" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      <div
+        className="container-main"
+        style={{ paddingTop: 40, paddingBottom: 80 }}
+      >
         <div style={{ maxWidth: 680, margin: "0 auto" }}>
           <div
             style={{
